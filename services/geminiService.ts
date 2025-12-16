@@ -1,98 +1,69 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { PromptResponse, DetailLevel } from "../types";
+import { InfluencerPromptResponse, WebsitePromptResponse, DetailLevel, AppMode } from "../types";
 
-const responseSchema: Schema = {
+// --- INFLUENCER SCHEMAS ---
+const influencerSchema: Schema = {
   type: Type.OBJECT,
   properties: {
-    subject: {
-      type: Type.STRING,
-      description: "The main subject (Influencer) description.",
-    },
-    detailed_prompt: {
-      type: Type.STRING,
-      description: "The raw, photorealistic prompt for generation. MANDATORY: Focus heavily on skin texture (pores, vellus hair), imperfections, and realistic lighting. NO 'CGI' or '3D' terms.",
-    },
-    negative_prompt: {
-      type: Type.STRING,
-      description: "Terms to avoid (e.g., plastic skin, cartoon, 3d render, illustration, painting, drawing).",
-    },
-    art_style: {
-      type: Type.STRING,
-      description: "The photo aesthetic (e.g., 'Candid Instagram Shot', 'High Fashion Editorial', 'Mirror Selfie', 'Paparazzi Style').",
-    },
-    lighting: {
-      type: Type.STRING,
-      description: "Realistic lighting description.",
-    },
-    camera_settings: {
-      type: Type.STRING,
-      description: "Specific camera gear or phone model (e.g., 'iPhone 15 Pro Max', 'Sony A7R IV', 'Fujifilm X100V').",
-    },
-    color_palette: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-      description: "Natural colors found in the photo.",
-    },
-    composition: {
-      type: Type.STRING,
-      description: "Framing and angle (e.g., 'Dutch angle', 'Eye level', 'Selfie arm visible').",
-    },
-    mood: {
-      type: Type.STRING,
-      description: "The vibe of the social media post.",
-    },
+    subject: { type: Type.STRING },
+    detailed_prompt: { type: Type.STRING },
+    negative_prompt: { type: Type.STRING },
+    art_style: { type: Type.STRING },
+    lighting: { type: Type.STRING },
+    camera_settings: { type: Type.STRING },
+    color_palette: { type: Type.ARRAY, items: { type: Type.STRING } },
+    composition: { type: Type.STRING },
+    mood: { type: Type.STRING },
   },
-  required: [
-    "subject",
-    "detailed_prompt",
-    "negative_prompt",
-    "art_style",
-    "lighting",
-    "camera_settings",
-    "color_palette",
-    "composition",
-    "mood",
-  ],
+  required: ["subject", "detailed_prompt", "negative_prompt", "art_style", "lighting", "camera_settings", "color_palette", "composition", "mood"],
 };
 
-const getDetailInstruction = (level: DetailLevel): string => {
+// --- WEBSITE SCHEMAS ---
+const websiteSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    project_name: { type: Type.STRING, description: "A catchy name for the project" },
+    detailed_prompt: { 
+      type: Type.STRING, 
+      description: "A highly detailed prompt optimized for AI coding tools like v0.dev, Lovable, or Cursor. It must describe the layout, colors, specific components (shadcn/ui), and functionality." 
+    },
+    ui_style: { type: Type.STRING, description: "e.g. Bento Grid, Brutalism, Clean SaaS, Dark Mode" },
+    tech_stack: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Recommended stack e.g. React, Tailwind, Framer Motion" },
+    color_palette: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Hex codes or Tailwind color names" },
+    sections: { type: Type.ARRAY, items: { type: Type.STRING }, description: "List of sections on the landing page" },
+    target_audience: { type: Type.STRING },
+  },
+  required: ["project_name", "detailed_prompt", "ui_style", "tech_stack", "color_palette", "sections", "target_audience"],
+};
+
+// --- HELPER FUNCTIONS ---
+
+const getInfluencerInstruction = (level: DetailLevel): string => {
   switch (level) {
-    case 1:
-      return "Simple realism. Just describe the person and the place naturally.";
-    case 2:
-      return "Balanced realism. Mention camera gear and basic skin details.";
-    case 3:
-      return "High fidelity realism. Focus deeply on textures, fabric details, and realistic lighting artifacts.";
-    case 4:
-      return "EXTREME HYPER-REALISM. Hallucinate microscopic details: skin pores, slight sweat, peach fuzz, lens dust, sensor noise, motion blur. The goal is to fool the viewer into thinking it is a real photo.";
-    default:
-      return "High fidelity realism.";
+    case 1: return "Simple realism.";
+    case 2: return "Balanced realism with camera details.";
+    case 3: return "High fidelity realism. Focus on textures.";
+    case 4: return "EXTREME HYPER-REALISM. Microscopic details, pores, raw photo look.";
+    default: return "High fidelity realism.";
   }
 };
 
-export const enhanceUserPrompt = async (input: string): Promise<string> => {
+export const enhanceUserPrompt = async (input: string, mode: AppMode): Promise<string> => {
   try {
     const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const model = "gemini-2.5-flash";
 
+    const context = mode === 'influencer' 
+      ? "You are a photography director. Describe physical attributes, location, and action."
+      : "You are a Senior UI/UX Designer. Describe the website's purpose, target audience, key features, and visual vibe.";
+
     const prompt = `
-      You are a photography assistant for AI Influencer creation.
-      Rewrite the user's simple description of a person into a detailed physical description.
-      
-      Focus on:
-      1. Physical attributes (Hair style/color, ethnicity, body type, clothing).
-      2. Setting/Location.
-      3. Doing WHAT? (Action).
-      
-      Keep it realistic. Do not add fantasy elements.
+      ${context}
+      Rewrite the user's input into a detailed description.
       Input: "${input}"
     `;
 
-    const response = await genAI.models.generateContent({
-      model: model,
-      contents: prompt,
-    });
-
+    const response = await genAI.models.generateContent({ model, contents: prompt });
     return response.text?.trim() || input;
   } catch (error) {
     console.error("Enhance Error:", error);
@@ -102,68 +73,90 @@ export const enhanceUserPrompt = async (input: string): Promise<string> => {
 
 export const generateVisualPrompt = async (
   userInput: string, 
-  style: string, // Kept for compatibility, but ignored or used as aesthetic hint
   detailLevel: DetailLevel = 3,
   camera?: string,
   lighting?: string
-): Promise<PromptResponse> => {
-  try {
-    const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const model = "gemini-2.5-flash";
+): Promise<InfluencerPromptResponse> => {
+  const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const model = "gemini-2.5-flash";
+  
+  const detailInstruction = getInfluencerInstruction(detailLevel);
+  
+  let constraints = [
+    `GOAL: Generate a JSON prompt for a 100% PHOTOREALISTIC AI INFLUENCER image.`,
+    `SKIN TEXTURE: Describe pores, imperfections, vellus hair.`,
+    `LIGHTING: Use terms like 'hard flash', 'direct sunlight', 'film grain'.`,
+  ];
+
+  if (camera && camera !== 'Auto') constraints.push(`CAMERA: Simulate "${camera}".`);
+  if (lighting && lighting !== 'Auto') constraints.push(`LIGHTING: Use "${lighting}".`);
+
+  const systemInstruction = `
+    You are an expert Photographer for AI Models.
+    1. Interpret User Input.
+    2. ${detailInstruction}
+    3. JSON Output.
+    4. detailed_prompt keywords: 'raw photo, unedited, 8k, uhd, dslr'.
+  `;
+
+  let userContent = `User Input: "${userInput}"\n\nCONSTRAINTS:\n${constraints.join('\n- ')}`;
+
+  const response = await genAI.models.generateContent({
+    model,
+    contents: userContent,
+    config: {
+      systemInstruction,
+      responseMimeType: "application/json",
+      responseSchema: influencerSchema,
+      temperature: 0.85,
+    },
+  });
+
+  if (response.text) return JSON.parse(response.text) as InfluencerPromptResponse;
+  throw new Error("No response from AI");
+};
+
+export const generateWebsitePrompt = async (
+  userInput: string,
+  siteType: string,
+  designStyle: string
+): Promise<WebsitePromptResponse> => {
+  const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const model = "gemini-2.5-flash";
+
+  const systemInstruction = `
+    You are an Elite Frontend Engineer and UI/UX Designer specialized in creating prompts for AI Coding Agents (v0, Lovable, Bolt).
     
-    const detailInstruction = getDetailInstruction(detailLevel);
+    Goal: Create a detailed prompt that will generate a stunning, modern website.
     
-    // Strict Realism Constraints
-    let constraints = [
-      `GOAL: Generate a JSON prompt for a 100% PHOTOREALISTIC AI INFLUENCER image.`,
-      `CRITICAL: The result must look like a RAW PHOTO taken by a real camera.`,
-      `FORBIDDEN: Do NOT use words like 'render', 'artwork', 'painting', 'illustration', '3d', 'octane', 'unreal engine'.`,
-      `SKIN TEXTURE: You MUST describe skin imperfections: pores, texture, moles, slight redness, veins, peach fuzz (vellus hair), oily t-zone. NO PLASTIC SKIN.`,
-      `EYES: Imperfect, realistic reflections.`,
-      `LIGHTING: Use terms like 'hard flash', 'direct sunlight', 'window light', 'film grain', 'iso noise'.`,
-      `AESTHETIC: Make it look like a post on Instagram, TikTok, or Pinterest.`,
-      `NEGATIVE PROMPT: Must include: 'cartoon, drawing, anime, 3d render, plastic skin, doll, blurred, low quality, symmetry, smooth skin'.`
-    ];
+    Focus on:
+    1. Modern Design: Shadcn UI, Tailwind CSS, Lucide Icons, Bento Grids, Glassmorphism.
+    2. Layout: Responsive, clean whitespace, strong typography (Inter/Geist).
+    3. Interactivity: Framer Motion animations, hover states, smooth scrolling.
+    
+    If 'designStyle' is provided, strictly adhere to it.
+  `;
 
-    if (camera && camera !== 'Auto') {
-      constraints.push(`CAMERA: Must simulate "${camera}". Mention specifics of this camera's look (e.g. if 'Phone', mention 'phone post processing', 'wide angle distortion').`);
-    }
+  let userContent = `
+    User Idea: "${userInput}"
+    Site Type: "${siteType}"
+    Design Style: "${designStyle}"
+    
+    Generate a JSON response describing this website project. 
+    The 'detailed_prompt' should be ready to copy-paste into v0.dev or Cursor Composer.
+  `;
 
-    if (lighting && lighting !== 'Auto') {
-      constraints.push(`LIGHTING: Must use "${lighting}".`);
-    }
+  const response = await genAI.models.generateContent({
+    model,
+    contents: userContent,
+    config: {
+      systemInstruction,
+      responseMimeType: "application/json",
+      responseSchema: websiteSchema,
+      temperature: 0.7, // Lower temperature for more structured code-oriented results
+    },
+  });
 
-    const systemInstruction = `
-      You are an expert Photographer and Prompt Engineer for Realistic AI Models (Flux, Midjourney, Stable Diffusion).
-      
-      1. Interpret the User Input (Turkish or English).
-      2. ${detailInstruction}
-      3. Create a JSON response.
-      4. In 'detailed_prompt', use keywords: 'raw photo, unedited, fujifilm, kodak portra, 8k, uhd, dslr, soft lighting, film grain, candid'.
-      5. In 'art_style', describe the Social Media Aesthetic (e.g. 'Old Money', 'Streetwear', 'Gym Rat', 'Cozy Home').
-      6. In 'detailed_prompt', describe the outfit fabrics (cotton, denim, silk) and how light hits them.
-    `;
-
-    let userContent = `User Input: "${userInput}"\n\nCONSTRAINTS:\n${constraints.join('\n- ')}`;
-
-    const response = await genAI.models.generateContent({
-      model: model,
-      contents: userContent,
-      config: {
-        systemInstruction: systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema: responseSchema,
-        temperature: 0.85, // Higher creativity for natural details
-      },
-    });
-
-    if (response.text) {
-      return JSON.parse(response.text) as PromptResponse;
-    } else {
-      throw new Error("No response from AI");
-    }
-  } catch (error) {
-    console.error("Gemini API Error:", error);
-    throw error;
-  }
+  if (response.text) return JSON.parse(response.text) as WebsitePromptResponse;
+  throw new Error("No response from AI");
 };
