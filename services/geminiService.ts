@@ -40,10 +40,10 @@ const websiteSchema: Schema = {
 
 const getInfluencerInstruction = (level: DetailLevel): string => {
   switch (level) {
-    case 1: return "Simple realism.";
+    case 1: return "Simple realism. Natural look.";
     case 2: return "Balanced realism with camera details.";
-    case 3: return "High fidelity realism. Focus on textures.";
-    case 4: return "EXTREME HYPER-REALISM. Microscopic details, pores, raw photo look.";
+    case 3: return "High fidelity realism. Focus on visible skin pores, skin texture, and fabric details.";
+    case 4: return "EXTREME HYPER-REALISM. MUST describe microscopic details: 'visible pores', 'vellus hair' (peach fuzz), 'flyaway hairs', 'skin texture imperfections', 'slight wrinkles', 'raw photo look'.";
     default: return "High fidelity realism.";
   }
 };
@@ -84,19 +84,36 @@ export const generateVisualPrompt = async (
   
   let constraints = [
     `GOAL: Generate a JSON prompt for a 100% PHOTOREALISTIC AI INFLUENCER image.`,
-    `SKIN TEXTURE: Describe pores, imperfections, vellus hair.`,
-    `LIGHTING: Use terms like 'hard flash', 'direct sunlight', 'film grain'.`,
+    `SKIN TEXTURE: You MUST explicitly include terms like 'visible skin pores', 'natural skin texture', 'vellus hair' (peach fuzz), 'flyaway hairs', 'slight wrinkles', and 'natural imperfections'. AVOID plastic/smooth skin.`,
   ];
 
-  if (camera && camera !== 'Auto') constraints.push(`CAMERA: Simulate "${camera}".`);
-  if (lighting && lighting !== 'Auto') constraints.push(`LIGHTING: Use "${lighting}".`);
+  // Specific Camera Logic
+  if (camera?.includes("0.6x")) {
+    constraints.push(`CAMERA STYLE: Ultra-wide angle 0.6x lens, dynamic Gen-Z perspective, distorted edges, high-angle look down or extreme close-up, wide field of view.`);
+  } else if (camera?.includes("2000'ler")) {
+    constraints.push(`CAMERA STYLE: 2000s mobile phone camera (Nokia style), low resolution digital artifacts, heavy digital noise, slight motion blur, pixelated texture, raw Y2K aesthetic.`);
+  } else if (camera?.includes("Vintage Dijital")) {
+    constraints.push(`CAMERA STYLE: Early 2010s point-and-shoot digital camera, chromatic aberration, sensor blooming, characteristic digicam color science, slightly soft edges.`);
+  } else if (camera && camera !== 'Auto') {
+    constraints.push(`CAMERA: Simulate exact technical specs of "${camera}".`);
+  }
+
+  // Specific Lighting Logic
+  if (lighting?.includes("Nostaljik Parlaklık")) {
+    constraints.push(`LIGHTING: Dreamy nostalgic glow, high-key soft lighting, ethereal bloom, warm childhood memory vibe, slightly hazy, saturated primary colors, vintage film look.`);
+  } else if (lighting?.includes("Pozlanmış Flaş")) {
+    constraints.push(`LIGHTING: Overexposed harsh direct flash, red-eye effect simulation, hard shadows, party photography look from the early 2000s, high contrast, washed out skin tones.`);
+  } else if (lighting && lighting !== 'Auto') {
+    constraints.push(`LIGHTING: Use "${lighting}".`);
+  }
 
   const systemInstruction = `
     You are an expert Photographer for AI Models.
     1. Interpret User Input.
     2. ${detailInstruction}
     3. JSON Output.
-    4. detailed_prompt keywords: 'raw photo, unedited, 8k, uhd, dslr'.
+    4. detailed_prompt keywords: 'raw photo, unedited, 8k, uhd, dslr, high texture'.
+    5. If nostalgic style is requested, ensure the keywords reflect that era (e.g., 'y2k', 'digital noise', 'soft glow').
   `;
 
   let userContent = `User Input: "${userInput}"\n\nCONSTRAINTS:\n${constraints.join('\n- ')}`;

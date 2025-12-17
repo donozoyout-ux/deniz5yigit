@@ -16,12 +16,29 @@ import {
 
 // Influencer Constants
 const CAMERA_OPTIONS = [
-  "Auto", "iPhone 15 Pro Max", "Sony A7R IV", "Ayna Selfiesi", 
-  "Fujifilm X100V", "Canon EOS R5", "CCTV", "Polaroid", "GoPro"
+  "Auto", 
+  "0.6x Ultra Geniş Açı (Gen-Z)", 
+  "2000'ler Telefonu (Nokia/Y2K)", 
+  "Vintage Dijital Kamera (Digicam)",
+  "iPhone 15 Pro Max", 
+  "Sony A7R IV", 
+  "Ayna Selfiesi", 
+  "Fujifilm X100V", 
+  "Canon EOS R5", 
+  "CCTV", 
+  "Polaroid", 
+  "GoPro"
 ];
 const LIGHTING_OPTIONS = [
-  "Auto", "Doğal Pencere", "Altın Saat", "Sert Flaş", 
-  "Halka Işık", "Loş/Moody", "Neon", "Stüdyo Softbox"
+  "Auto", 
+  "Nostaljik Parlaklık (Rüya Gibi)", 
+  "Aşırı Pozlanmış Flaş (2000'ler)", 
+  "Altın Saat", 
+  "Doğal Pencere", 
+  "Halka Işık", 
+  "Loş/Moody", 
+  "Neon", 
+  "Stüdyo Softbox"
 ];
 
 // Website Constants
@@ -222,7 +239,7 @@ const App: React.FC = () => {
             <textarea
               className="w-full bg-[#0a0a0a] text-lg text-gray-100 placeholder-gray-700 p-6 min-h-[140px] resize-none focus:outline-none rounded-2xl transition-all font-light leading-relaxed"
               placeholder={mode === 'influencer' 
-                ? "Influencer'ı tanımla: 'Milano sokaklarında kahve içen, üzerinde bej trençkot olan...'" 
+                ? "Influencer'ı tanımla: '2000'lerde bir genç kız, odasında ayna karşısında...'" 
                 : "Web sitesini tanımla: 'Yapay zeka araçları satan bir SaaS platformu, modern ve karanlık tema...'"}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
